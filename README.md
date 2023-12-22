@@ -175,25 +175,30 @@ by default.
 
 #### 1.2.4.1. Default VPC Facts
 
+One per region - can be removed & recreated.
+
 VPC CIDR - defines start and end ranges of the VPC.
 IP CIDR of a default VPC is always: **172.31.0.0/16**
 
 Configured to have one subnet in each AZ in the region by default.
 
 Subnets are given one section of the IP ranges for the default service. 
-They are configured to provide anything that is deployed inside those subnets with public IPv4 addresses. 
+They are configured to provide anything that is deployed inside those subnets with **public IPv4 addresses**.
 
 In general do not use the Default VPC in a region because it is not flexible.
 
 Default VPC is large because it uses the /16 range.
-A subnet is smaller such as /20
+A subnet is smaller such as /20 (**/20** Subnet in **each AZ**)
 The higher the / number is, the smaller the grouping.
 
 Two /17's will fit into a /16, sixteen /20 subnets can fit into one /16.
 
+Internet Gateway (IGW) (allows vpc communicate with the internet and vice versa),
+Security Group (SG) & NACL (limit incoming and outgoing data transfer) are pre-configured.
+
 ### 1.2.5. Elastic Compute Cloud (EC2)
 
-Default compute service. Provides access to virtual machines called instances.
+**IAAS** - Default compute service. Provides access to virtual machines called **instances**.
 
 #### 1.2.5.1. Infrastructure as as Service (IaaS)
 

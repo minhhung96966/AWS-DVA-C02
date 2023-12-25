@@ -317,9 +317,16 @@ Other components:
 - Unlimited number of Objects
 - Name is globally unique
 - All objects are stored within the bucket at the same level.
+- 100 soft limit, 1000 hard per account (submit a request), so that we shouldn't
+use 1 bucket per user, we should use 1 bucket and prefixes instead.
 
 If the objects name starts with a slash such as `/old/Koala1.jpg` the UI will
 present this as a folder. In actuality this is not true, there are no folders.
+
+Objects and buckets are private by default, if we unselect "Block all public access" 
+option when creating bucket, that means, objects and bucket can be public, 
+but it is still private. We cannot open object normally. 
+We have to click on Open button it will open that object in a browser with token.
 
 ### 1.2.7. CloudFormation Basics
 

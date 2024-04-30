@@ -1112,7 +1112,7 @@ This is influenced by the bucket name and region it is in.
 This cannot be changed.
 
 You can use a custom domain for a bucket, but then the bucket name matters.
-The name of the bucket must match the domain.
+The name of the bucket must match the domain. (enter a DNS formatted bucket name)
 
 #### 1.4.2.1. Offloading
 
@@ -1134,6 +1134,20 @@ We could then change our DNS and move customers to a backup website on S3.
   - Data out is a per GB charge
 - Each operation has a cost per 1000 operations.
   - Can add up for static website hosting with many requests.
+
+#### 1.4.2.3. Creating a static website with S3 step by step
+
+- Enter unique bucket name -> Uncheck block all public access -> Create bucket
+- Go to bucket -> Properties -> Static website hosting -> Edit -> Enable
+  - Input Index Document (ex: index.html) and Error Document (error.html) -> Save
+  - Copy link show in Static website hosting to use latter
+- Go to Objects -> Upload
+  - Add files: index.html and error.html 
+  - Add folder: img folder
+- Go to Permissions -> Bucket policy -> Edit -> Update policy
+
+Example with custom domain name Route 53: 
+... to be continued ...
 
 ### 1.4.3. Object Versioning and MFA Delete
 

@@ -1185,6 +1185,18 @@ In order to change a version state or delete a particular version of an object,
 you need to provide the serial number of your MFA token as well as the code
 it generates. These are concatenated and passed with any API calls.
 
+#### 1.4.3.2. Object Versioning and MFA Delete step by step
+
+- When create a bucket -> enabled "Bucket versioning" option
+- Everytime you upload an object to a S3 bucket, it's assign a version ID (toggle on "Show versions")
+- If you upload an object with the same name then instead of overwriting that object,
+it just creates a new version of that object
+- If you delete an object, S3 added a new version of that object, but instead of an actual new version
+of the object, it's simply added a delete marker as that new version. If we toggle off "Show versions"
+it's look like we already deleted that object. (not permanently delete)
+- You can delete the delete marker to enable that object again (permanently delete).
+- you can delete any object version (permanently delete).
+
 ### 1.4.4. S3 Performance Optimization
 
 Single PUT Upload

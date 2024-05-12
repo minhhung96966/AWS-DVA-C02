@@ -1224,6 +1224,9 @@ S3 Accelerated Transfer
 - Name must be DNS compatible.
 - Benefits improve the larger the location and distance.
   - The worse the start, the better the performance benefits.
+- How to enable: After creating a new bucket, go to Properties, edit 
+Transfer acceleration to Enable.
+- Demonstrate AWS Accelerated Transfer Tool : http://s3-accelerate-speedtest.s3-accelerate.amazonaws.com/en/accelerate-speed-comparsion.html
 
 ### 1.4.5. Encryption 101
 
@@ -1387,7 +1390,33 @@ to an IAM user, if they're granted any identity permissions.
 
 ### 1.4.7. KMS Key Demo
 
+1. Configure key (keep default)
+
+    Key type: Symmetric 
+
+    Key usage: Encrypt and decrypt 
+
+    Key material origin: KMS (AWS KMS creates and manages the key material for the KMS key.)
+    
+    Regionality: Single-Region key (Never allow this key to be replicated into other Regions)
+
+2. Add labels
+
+    Alias: catrobot
+
+3. Define key administrative permissions (Who manage the key)
+
+    Choose iamadmin
+
+4. Define key usage permissions (Who can use key to decrypt and encrypt)
+
+    Choose iamadmin
+
 Linux/macOS commands
+
+```bash
+echo "find all the doggos, distract them with the yumz" > battleplans.txt
+```
 
 ```bash
 aws kms encrypt \
@@ -1395,15 +1424,13 @@ aws kms encrypt \
     --plaintext fileb://battleplans.txt \
     --output text \
     --query CiphertextBlob \
-    --profile iamadmin-general | base64 \
-    --decode > not_battleplans.enc
+    | base64 --decode > not_battleplans.enc 
 ```
 
 ```bash
 aws kms decrypt \
     --ciphertext-blob fileb://not_battleplans.enc \
     --output text \
-    --profile iamadmin-general \
     --query Plaintext | base64 --decode > decryptedplans.txt
 ```
 

@@ -1480,7 +1480,7 @@ it with the key used to encrypt it. If the key that you supply is correct,
 the proper hash, S3 will decrypt the object, discard the key, and return the
 plaintext version of the object.
 
-#### 1.4.8.2. SSE-S3 AES256 (Server-side encryption w/ Amazon S3 managed keys)
+#### 1.4.8.2. SSE-S3 AES256 (Server-side encryption w/ Amazon S3 managed keys) (default)
 
 AWS handles both the encryption and decryption process as well as the
 key generation and management. This provides very little control over how
@@ -1530,7 +1530,30 @@ The CMK is used to decrypt the data encryption key for that object.
 That decrypted data encryption key is used to decrypt the object itself.
 If you don't have access to KMS, you don't have access to the object.
 
+#### 1.4.8.4. [DEMO] Object Encryption and Role Separation
+
+To be continued ...
+
+#### 1.4.8.5. S3 Bucket Keys
+From https://docs.aws.amazon.com/AmazonS3/latest/userguide/bucket-key.html:
+
+- Amazon S3 Bucket Keys reduce the cost of Amazon S3 server-side encryption with AWS Key Management Service (AWS KMS) keys (SSE-KMS). 
+
+- Using a bucket-level key for SSE-KMS can reduce AWS KMS request costs by up to 99 percent by decreasing the request traffic from Amazon S3 to AWS KMS. 
+
+- With a few clicks in the AWS Management Console, and without any changes to your client applications, you can configure your bucket to use an S3 Bucket Key for SSE-KMS encryption on new objects.
+
+To be continued ...
+
 ### 1.4.9. S3 Object Storage Classes
+
+From https://www.javatpoint.com/aws-storage-classes:
+
+- S3 storage classes are used to assist the concurrent loss of data in one or two facilities.
+
+- S3 storage classes maintain the integrity of the data using checksums.
+
+- S3 provides lifecycle management for the automatic migration of objects for cost savings.
 
 Picking a storage class can be done while uploading a specific object.
 The default is S3 standard. Once an object is uploaded to a specific class,
@@ -1542,8 +1565,8 @@ Objects in S3 are stored in a specific region.
 
 - Default AWS storage class that's used in S3, should be user default as well.
 - S3 Standard is region resilient, and can tolerate the failure of an AZ.
-- Objects are replicated to at least 3+ AZs when they are uploaded.
-- 99999999999% durability
+- **Objects are replicated to at least 3+ AZs when they are uploaded.**
+- 99999999999% durability (for 10,000,000 objects, 1 object loss per 10,000 years)
 - 99.99% availability
 - Offers low latency and high throughput.
 - No minimums, delays, or penalties.
@@ -1551,8 +1574,12 @@ Objects in S3 are stored in a specific region.
 
 All of the other storage classes trade some of these compromises for another.
 
+=> Use S3 Standard for **Frequently Accessed** Data which is **important** and **Non Replaceable**
+
 #### 1.4.9.2. S3 Standard-IA
 
+- **Objects are replicated to at least 3+ AZs when they are uploaded.**
+- 99999999999% durability (for 10,000,000 objects, 1 object loss per 10,000 years)
 - Designed for less frequent rapid access when it is needed.
 - Cheaper rate to store data you will rarely need, but if you do need it, you
 need it quickly.
@@ -1563,7 +1590,7 @@ need it quickly.
 - Retrieval fee for every GB of data retrieved from this class.
 - 99.9% availability, slightly lower than standard S3.
 
-Designed for data that isn't accessed often, long term storage, backups,
+=> Designed for data that isn't accessed often, long term storage, backups,
 disaster recovery files. The requirement for data to be safe is most important.
 
 #### 1.4.9.3. One Zone-IA
@@ -1578,6 +1605,9 @@ Great choice for secondary copies of primary data or backup copies.
 
 If data is easily creatable from a primary data set, this would be a great
 place to store the output from another data set.
+
+=> Should be used for **long-lived data**, which is **NON-CRITICAL** 
+& **REPLACEABLE** and where access is **infrequent**.
 
 #### 1.4.9.4. S3 Glacier
 
@@ -1614,6 +1644,15 @@ Retrieval methods:
 - If an object is not accessed for 30 days, it will move into Standard-IA.
 
 This is good for objects that are unknown their access pattern.
+
+![img.png](s3_intelligent_tiering.png)
+Frequent Access: S3 Standard
+
+Infrequent Access: S3 Standard IA
+
+Archive Instant Access: S3 Glacier Instant Retrieval and S3 Glacier Flexible Retrieval 
+
+Deep Archive: S3 Glacier Deep Archive
 
 ### 1.4.10. Object Lifecycle Management
 

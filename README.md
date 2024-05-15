@@ -1740,6 +1740,70 @@ SRR - Resilience with strict sovereignty requirements
 CRR - Global resilience improvements
 CRR - Latency reduction
 
+#### 1.4.11.3. [DEMO] Cross-Region Replication of an S3 Static Website
+
+1. Create new source bucket:
+
+   bucket name: sourcebucketac7121996
+
+2. Enable static website hosting for source bucket
+
+   Set index.html, error.html
+
+3. Go to Permission
+
+   Uncheck block all public access
+
+   Edit bucket policy
+
+4. Create new destination bucket:
+
+   bucket name: destinationbucketac7121996
+ 
+   Choose different region with source bucket
+
+   Uncheck block all public access
+
+5. Enable static website hosting for destination bucket
+
+   Set index.html, error.html
+
+6. Go to Permission
+
+   Edit bucket policy
+
+7. Go to source bucket -> management -> Create replication rule
+
+   Enable bucket versioning
+
+   Replication rule name: staticwebsiteDR
+
+   Status: enabled
+
+   Source bucket scope: Apply to all objects in the bucket
+
+   Destination: Choose a bucket in this account (sourcebucketac7121996) and Enable bucket versioning
+
+   IAM role: Create new Role
+
+   Encryption: uncheck
+
+   Destination storage class: uncheck
+
+   Additional replication options: uncheck
+
+8. Go to source bucket -> add files
+  
+   Now we can access website: http://sourcebucketac7121996.s3-website-us-east-1.amazonaws.com/
+
+9. Go to destination bucket: 
+  
+   We can see objects from source bucket are replicated to destination bucket
+   
+   Now we can access website: http://destinationbucketac7121996.s3-website.us-east-2.amazonaws.com/
+
+10. Go to source bucket -> add files again with same name with previous file -> destination will change also
+
 ### 1.4.12. S3 Presigned URL
 
 A way to give another person or application access to a object inside an S3
@@ -1767,6 +1831,61 @@ that generated it at the moment the item is being accessed.
 - Don't generate presigned URLs with an IAM role.
   - The role will likely expire before the URL does.
 
+#### 1.4.12.2. [DEMO] S3 Presigned URL
+
+1. Create new source bucket:
+
+   bucket name: animals4lifemedia7121996
+
+2. Upload new file: 
+
+   fileName: all5.jpg
+
+3. Open Aws CloudShell
+
+   Command to generate a presigned URL
+   Fast Expiry
+```bash
+aws s3 presign s3://animals4lifemedia7121996/all5.jpg --expires-in 180
+ ```
+   Expiry in 1 week
+```bash
+aws s3 presign s3://animals4lifemedia7121996/all5.jpg --expires-in 604800
+ ```
+  Now you can use the Presigned URL
+4. Add new inline policy for iam admin to deny S3
+
+```bash
+{
+    "Version": "2012-10-17",
+    "Statement": [
+        {
+            "Sid": "VisualEditor0",
+            "Effect": "Deny",
+            "Action": "s3:*",
+            "Resource": "*"
+        }
+    ]
+}
+```
+
+Now we cannot access to that Presigned URL anymore
+
+Note: Lúc tạo Presigned URL ban đầu Presigned URL có permission của mình, nhưng nếu mình không còn permission nữa thì Presigned URL tự động mất perrmission
+
+We can create Presigned URL even we dont have permission to s3, but we still denied to that Presigned URL
+
+If we remove denyS3 policy from iamadmin we can access previous Presigned URL again
+
+We can create Presigned URL for non existing object
+
+If you generate a Presigned URL using temporary credentials that you get by asssume a role, 
+ex EC2 instance which had instance role in that instance and then we generate a Presigned URL, even huge expires time,
+that Presigned URL would stop working when those temporary credentials for that role also stopped working.
+
+5. Generate Presigned URL using console UI
+   Object -> Object action -> Shared with a presigned url
+  
 ### 1.4.13. S3 Select and Glacier Select
 
 This provides a ways to retrieve parts of objects and not the entire object.

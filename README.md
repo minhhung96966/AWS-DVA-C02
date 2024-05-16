@@ -1897,6 +1897,62 @@ S3 and Glacier select lets you use SQL-like statements to select part of the
 object which is returned in a filtered way.
 The filtering happens at the S3 service itself saving time and data.
 
+### 1.4.14. Cross-origin Resource Sharing (CORS)
+
+To be continued ...
+
+### 1.4.15. S3 Events
+
+- Notification generated when events occur in a bucket
+- Can be delivered to SNS, SQS and Lambda Functions
+- Object Created
+- Object Delete
+- Object Restore
+- Replication
+- EventBridge is an alternative and supports more types 
+of events and more services
+
+### 1.4.16. S3 Access Logs
+
+Server access logging provides detailed records for the requests that 
+are made to a bucket. Server access logs are useful for many applications. 
+For example, access log information can be useful in security and access audits. 
+It can also help you learn about your customer base and understand your Amazon S3 bill.
+
+### 1.4.17. S3 Requester Pays
+
+In general, bucket owners pay for all Amazon S3 storage and data transfer 
+costs associated with their bucket. A bucket owner, however, can configure a 
+bucket to be a Requester Pays bucket. With Requester Pays buckets, 
+the requester instead of the bucket owner pays the cost of the request and the data download 
+from the bucket. The bucket owner always pays the cost of storing data.
+
+### 1.4.17. S3 Object Lock
+
+S3 Object Lock sử dụng model WORM – Write Once, Read Many (Ghi một lần và đọc nhiều lần). Tính năng này được sử dụng trong trường hợp chúng ta bắt buộc không được thay đổi hoặc xóa object sau khi đã được đưa lên S3. Đây là một Use case có thể xuất hiện khi chúng ta sử dụng S3 làm nơi lưu trữ Log, các record history, hoặc các yêu cầu về lưu trữ dữ liệu cố định.
+
+Các object có thể sử dụng tính năng S3 Object Lock một cách độc lập. Có nghĩa là chúng ta có thể set thời gian lưu trữ cho từng object một, chứ không phải cả bucket. Điều này giúp cho S3 Object Lock có một khả năng flexible hơn các loại dịch vụ Storage khác.
+
+S3 Object có 3 chế độ như sau:
+
+- Retention Period Governance mode: Ở chế độ này, chúng ta sẽ cần set một mốc thời  điểm cụ thể sẽ mở Retention Period ra. Trước khi tới thời điểm này, Object sẽ bị Lock, và chúng ta chỉ có thể chỉnh sửa hay xóa object đã bị lock bằng cách sử dụng quyền IAM Permission:  s3:BypassGovernanceRetention. Do phương án này Lock Object lại, nhưng vẫn có thể cho phép một vài người có một số quyền đặc biệt truy cập và chỉnh sửa những thiết lập này, và dẫn tới kết quả là có thể xóa được những object đã bị lock.
+
+- Retention Period Compliance Mode: Là một chế độ tương tự như Retention Period Governance mode, tuy nhiên ở chế độ này, người dùng hoàn toàn không có cách nào để xóa được những Object đã bị Lock vào trước thời hạn cho phép. Khi sử dụng chế độ này cần cực kỳ lưu ý, do những file lớn, không thể xóa được có thể gây ra lãng phí hoặc tốn kém không cần thiết. Chúng ta chỉ nên  sử dụng chế độ này khi có yêu cầu.
+
+- Legal Hold: Về tính năng, Legal Hold tương tự như Retention Period. Tuy nhiên, Legal Hold đưa object về trạng thái Lock chừng nào mà chúng ta chưa đưa object ra khỏi trạng thái Lock. Chúng ta có thể sử dụng Legal Hold mãi mãi, hoặc tới một thời gian nào đó mà chúng ta chưa xác định được.
+
+Để sử dụng S3 Object Lock, chúng ta sẽ cần:
+
+1. Bật tính năng Object Lock trên Bucket lên.
+
+2. Tạo default retention period
+
+3. Đưa object vào bucket và bật tính năng retention period lên.
+
+S3 Bucket cho phép chúng ta setup Retention Date (do áp dụng cho nhiều object), nên chúng ta có thể setup sử dụng Retention Date trong bao nhiêu ngày, thay vì setup một ngày cụ thể như Retention Object. Việc này sẽ giúp chúng ta đỡ phải set từng object mỗi khi up lên, sẽ tốn khá nhiều gian.
+
+(https://codestar.vn/aws-object-lock-s3/)
+
 ---
 
 ## 1.5. Virtual-Private-Cloud-VPC

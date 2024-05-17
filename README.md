@@ -8,6 +8,7 @@
 - [1.2. AWS-Fundamentals](#12-aws-fundamentals)
 - [1.3. IAM-Accounts-AWS-Organizations](#13-iam-accounts-aws-organizations)
 - [1.4. Simple-Storage-Service-(S3)](#14-simple-storage-service-s3)
+- [1.5. Policy-Interpretation-Deep-Dive](#15-policy-interpretation-deep-dive)
 - [1.5. Virtual-Private-Cloud-VPC](#15-virtual-private-cloud-vpc)
 - [1.6. Elastic-Cloud-Compute-EC2](#16-elastic-cloud-compute-ec2)
 - [1.7. Containers-and-ECS](#17-containers-and-ecs)
@@ -1952,6 +1953,171 @@ S3 Object có 3 chế độ như sau:
 S3 Bucket cho phép chúng ta setup Retention Date (do áp dụng cho nhiều object), nên chúng ta có thể setup sử dụng Retention Date trong bao nhiêu ngày, thay vì setup một ngày cụ thể như Retention Object. Việc này sẽ giúp chúng ta đỡ phải set từng object mỗi khi up lên, sẽ tốn khá nhiều gian.
 
 (https://codestar.vn/aws-object-lock-s3/)
+
+---
+
+## 1.5. Policy-Interpretation-Deep-Dive
+
+### 1.5.1. Example 1
+
+```bash
+{
+    "Version": "2012-10-17",
+    "Statement": 
+    [
+      {
+        "Effect":"Allow",
+        "Action":[
+           "s3:PutObject",
+           "s3:PutObjectAcl",
+           "s3:GetObject",
+           "s3:GetObjectAcl",
+           "s3:DeleteObject"
+        ],
+        "Resource":"arn:aws:s3:::holidaygifts/*"
+      },
+      {
+        "Effect": "Deny",
+        "Action": [
+          "s3:GetObject",
+          "s3:GetObjectAcl"
+        ],
+        "Resource":"arn:aws:s3:::holidaygifts/*",
+        "Condition": {
+            "DateGreaterThan": {"aws:CurrentTime": "2022-12-01T00:00:00Z"},
+            "DateLessThan": {"aws:CurrentTime": "2022-12-25T06:00:00Z"}
+        }
+      }
+    ]
+}
+```
+
+- Step 1: identifying the number of statements
+- Step 2: identifying at a high level what each statement actually does. 
+What is the effect of each statement?
+- Priority order of permissions: Deny, Allow, Deny
+- AWS start off with an implicit or a default deny: If you're not granted the
+ability to do something in AWS, then by default you start off with no permissions.
+   - When you-re reviewing a policy document, you need to start off from the basis of zero
+permission and that will help inform what exactly this policy document does.
+   - If something is denied explicitly, that always wins. 
+   - If something is explicitly allowed, then it's allowed unless there's also an explicit deny.
+   - If neither of these are true, if there is no explicit deny and no explicit allow, 
+     then the implicit default deny takes effect.
+
+### 1.5.2. Example 2
+
+```bash
+{
+    "Version": "2012-10-17",
+    "Statement": [
+        {
+            "Sid": "DenyNonApprovedRegions",
+            "Effect": "Deny",
+            "NotAction": [
+                "cloudfront:*",
+                "iam:*",
+                "route53:*",
+                "support:*"
+            ],
+            "Resource": "*",
+            "Condition": {
+                "StringNotEquals": {
+                    "aws:RequestedRegion": [
+                        "ap-southeast-2",
+                        "eu-west-1"
+                    ]
+                }
+            }
+        }
+    ]
+}
+```
+
+The effect of this particular statement is a deny and it only has a single statement inside the policy document.
+There's no allow in this policy. 
+
+Since the default permission in AWS is the default or implicit deny, then this policy will generally 
+be accompanied (đi kèm) by a separate policy which defines things which are allowed.
+
+If you have a single policy with a single statement that only contains a deny then generally it will be used in
+conjunction (sự liên kết) with another policy.
+
+Not Action: is the inverse of Action, instead of deny a set of actions, it denies anything which isn't one of these actions.
+
+=> Purpose of this statement is to deny access to any services if you're attempting to interact with them 
+outside of this list of approved regions (ap-southeast-2, eu-west-1) unless it's one of these 
+global services (cloudfront, iam, ...) in which case they're not affected by this deny statement. 
+
+### 1.5.3. Example 3
+
+```bash
+{
+    "Version": "2012-10-17",
+    "Statement": [
+        {
+            "Effect": "Allow",
+            "Action": [
+                "s3:ListAllMyBuckets",
+                "s3:GetBucketLocation"
+            ],
+            "Resource": "*"
+        },
+        {
+            "Effect": "Allow",
+            "Action": "s3:ListBucket",
+            "Resource": "arn:aws:s3:::cl-animals4life",
+            "Condition": {
+                "StringLike": {
+                    "s3:prefix": [
+                        "",
+                        "home/",
+                        "home/${aws:username}/*"
+                    ]
+                }
+            }
+        },
+        {
+            "Effect": "Allow",
+            "Action": "s3:*",
+            "Resource": [
+                "arn:aws:s3:::cl-animals4life/home/${aws:username}",
+                "arn:aws:s3:::cl-animals4life/home/${aws:username}/*"
+            ]
+        }
+    ]
+}
+```
+- Statement 1:
+  - There are a few s3 actions where you need to use "Resource": "*" (ex: ListAllMyBuckets, GetBucketLocation, CreateBucket)
+  - This statement means that whatever identity has this particular statement can list s3 buckets in the account.
+  Note, that these only let you list the buckets. You can't actually peek inside the buckets base on only these permissions.
+- Statement 2:
+  - Allow a list bucket action, allow you to list the contents of a particular bucket and it specifies one bucket in particular 
+  (cl-animals4life). So in absence of anything else, this would allow you to list all of the objects inside the entire bucket.
+  - This bucket is used for home folders for all of the users of the organization and you don't want people to be able to list
+  any folder apart from their own. Condition block helps you do this comparison.
+  - Using StringLike s3:prefix, because S3 doesn't actually have folders, it's a flat structure. Folders are created by adding 
+  prefixes to object names and this matches prefixes.
+     - "": top level, no prefix
+     - "home/": everything inside home prefix
+     - "home/${aws:username}/*": everything inside a prefix matches their IAM username inside home. 
+- Statement 3:
+  - Allows any s3 actions (get object, put object, delete object, ...) occur both on your particular home folder and any objects 
+  inside your home folder.
+  - ref: https://docs.aws.amazon.com/IAM/latest/UserGuide/reference_policies_variables.html
+
+### 1.5.4. AWS Permissions Evaluation
+
+#### 1.5.4.1 Policy Evaluation Logic - Same Account
+
+![PolicyEvaluation1.png](PolicyEvaluation1.png)
+
+![PermissionsBoundaries.png](PermissionsBoundaries.png)
+
+#### 1.5.4.1 Policy Evaluation Logic - Different Accounts
+
+![PolicyEvaluation2.png](PolicyEvaluation2.png)
 
 ---
 

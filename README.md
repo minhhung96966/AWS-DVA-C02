@@ -2119,13 +2119,31 @@ global services (cloudfront, iam, ...) in which case they're not affected by thi
 
 ![PolicyEvaluation2.png](PolicyEvaluation2.png)
 
+### 1.5.5. CloudHSM
+
+To be continue ...
+
 ---
 
 ## 1.5. Virtual-Private-Cloud-VPC
 
 ### 1.5.1. Networking Refresher
 
-#### 1.5.1.1. IPv4 - RFC 791 (1981)
+#### 1.5.1.1. Decimal to Binary Conversion IP Addressing
+
+You see: 133.33.33.7 -> Dotted Decimal Notation
+
+Computer see: 10000101.00100001.00100001.00000111
+-> 32 Bits, 4 x 8 Bits, 4 Bytes, 4 Octets
+
+Decimal to Binary:
+![img.png](decimal-to-binary.png)
+
+
+Binary to Decimal:
+![img.png](binary-to-decimal.png)
+
+#### 1.5.1.2. IPv4 - RFC 791 (1981)
 
 Dotted decimal notation for human readability.
 
@@ -2136,54 +2154,39 @@ There are just over 4 billion addresses.
 This was not very flexible because it was either too small or large for
 some corporations. Some IP addresses was always left unused.
 
-#### 1.5.1.2. Classful Addressing
+133.33.3.7 -> 133.33 network part + 3.7 host part (1 device of that network part)
 
-- Class A range
-  - Starts at `0.0.0.0` and ends at `127.255.255.255`.
-  - Split into 128 class A networks
-  - Handed out to large companies
-- Class B Range
-  - Half the range of class A.
-  - Starts at `128.0.0.0` and ends at `191.255.255.255`.
-- Class C Range
-  - Half of range class B
-  - Starts at `192.0.0.0` and ends at `223.255.255.255`.
+- If the 'Network' part of two IP addresses match, it means they're on the same IP network.
+- This network has a /16 prefix, 16 bits of the IP are network, and the remaining bits are for hosts.
+- IP Addresses are assigned by machine (DHCP) or Humans (and unique)
 
-#### 1.5.1.3. Internet / Private IPs - RFC1918
+Subnet Mask: allows a HOST to determine if an IP address it needs to communicate which is 
+local or remote - which influences if it needs to use a gateway or can communicate locally
 
-These can't communicate over the internet and are used internally only
+Route Tables & Routes:
 
-- One class A network: `10.0.0.0` - `10.255.255.255`
-- 16 Class B networks: `172.16.0.0` - `172.31.255.255`
-- 256 Class C networks: `192.168.0.0` - `192.168.255.255`
+- Your device send data to router with Packet SRC (home) and Destination.
+Default route 0.0.0.0/0 sends all packets to your internet service provider.
+- Router has multiple interfaces route table is used for selection.
+- Route table contains Destination and Next Hop/Target field.
+- Router compares packet Destination IP & Route table for matching destinations.
+The more specific prefixes are preferred (0 lowest, 32 highest). Packet is forwarded
+on to the Next Hop/Target.
+- 0.0.0.0/0 matches all IP address, is knows as default route, it will match if nothing else does
 
-#### 1.5.1.4. Classless inter-domain routing (CIDR)
+Address Resolution Protocol (ARP):
 
-CIDR networks are represented by the starting IP address of the network
-called the network address and the prefix.
+- Within a local network data is moved via L2 Frames over L1. ARP discovers which
+MAC relates to a given IP.
 
-CIDR Example: `10.0.0.0/16`
+IP Routing: 
 
-- `10.0.0.0` is the first address on the network
-- /16 is the size of the network called the prefix.
-  - The bigger the prefix, the smaller the network
-  - The smaller the prefix, the bigger the network.
-- /16 provides 65,536 addresses.
-- `10.0.0.0/17` and `10.0.128.0/17` are each half of the original example.
-  - This is called **subnetting**
+- Use Subnet Mask to check if same network then communicate through L2 with the help of ARP, 
+if different network then pass through Route gateway.
 
-#### 1.5.1.5. IP address notations to remember
+(Layer 3 content)
 
-- `0.0.0.0/0` means all IP addresses
-- `10.0.0.0/8` means 10.ANYTHING - Class A
-- `10.0.0.0/16` means 10.0.ANYTHING - Class B
-- `10.0.0.0/24` means 10.0.0.ANYTHING - Class C
-- `10.0.0.0/32` means only 1 IP address
-
-`10.0.0.0/16` is the equivalent of `1234` as a password. You should consider
-other ranges that people might use to ensure it does not overlap.
-
-#### 1.5.1.6. Packets
+#### 1.5.1.3. Packets
 
 Contains:
 
@@ -2199,9 +2202,90 @@ TCP and UDP are protocols built on top of IP.
 TCP/UDP Segment has a source and destination port number.
 This allows devices to have multiple conversations at the same time.
 In AWS when data goes through network devices, filters can be set based on
-IP addresses and port numbers.
+IP addresses and port numbers. (Layer 4)
 
-#### 1.5.1.7. IPv6 - RFC 8200 (2017)
+Session & State: for security communication between client and server
+
+- Stateless firewall: would see two things.
+  - Outbound .. (LAPTOP-IP & tcp/23060) => (SERVER-IP & tcp/443)
+  - Response .. (SERVER-IP & tcp/443) => (LAPTOP-IP & tcp/23060)
+  - TWO RULES will be required ... OUT and IN
+  - In AWS, that's what a network access control list is.
+    It's a stateless firewall which needs two rules for each TCP connection, one in both directions.
+
+- Stateful firewall: views sees one thing
+  - Outbound .. (LAPTOP-IP & tcp/23060) => (SERVER-IP & tcp/443)
+  - Allowing the outbound implicitly allows the inbound response
+  - In AWS, this is how a security group works. The difference is that a stateful firewall
+    understands layer four and the state of the traffic.
+
+#### 1.5.1.4. Network Address Translation
+
+- Overcome IPv4 shortages
+- Provides some security benefits
+- Translates Private IPv4 addresses to Public
+- Static NAT - 1 private to (fixed) public address (IGW)
+- Dynamic NAT - 1 private to 1st available Public
+- Port Address Translation (PAT) - many private to 1 public (NATGW).
+This is like your home internet router, many devices (laptop, computer, phone, ...) 
+will use same public IP with different public Port.
+
+#### 1.5.1.3. Classful Addressing
+
+- Class A range
+  - Starts at `0.0.0.0` and ends at `127.255.255.255`.
+  - Split into 128 class A networks
+  - Handed out to large companies
+- Class B Range
+  - Half the range of class A.
+  - Starts at `128.0.0.0` and ends at `191.255.255.255`.
+- Class C Range
+  - Half of range class B
+  - Starts at `192.0.0.0` and ends at `223.255.255.255`.
+
+#### 1.5.1.4. Internet / Private IPs - RFC1918
+
+These can't communicate over the internet and are used internally only
+
+- One class A network: `10.0.0.0` - `10.255.255.255` (host: 10)
+- 16 Class B networks: `172.16.0.0` - `172.31.255.255` (host: 172.16 -> 172.31)
+- 256 Class C networks: `192.168.0.0` - `192.168.255.255` (host: 192.168.0 -> 192.168.255)
+
+Private network can be used/reused freely.
+
+#### 1.5.1.5. IP Subnetting
+
+![img.png](ip-subnetting-1.png)
+
+![img.png](ip-subnetting-2.png)
+
+#### 1.5.1.5. Classless inter-domain routing (CIDR)
+
+CIDR networks are represented by the starting IP address of the network
+called the network address and the prefix.
+
+CIDR Example: `10.0.0.0/16`
+
+- `10.0.0.0` is the first address on the network
+- /16 is the size of the network called the prefix.
+  - The bigger the prefix, the smaller the network
+  - The smaller the prefix, the bigger the network.
+- /16 provides 65,536 addresses.
+- `10.0.0.0/17` and `10.0.128.0/17` are each half of the original example.
+  - This is called **subnetting**
+
+#### 1.5.1.6. IP address notations to remember
+
+- `0.0.0.0/0` means all IP addresses
+- `10.0.0.0/8` means 10.ANYTHING - Class A
+- `10.0.0.0/16` means 10.0.ANYTHING - Class B
+- `10.0.0.0/24` means 10.0.0.ANYTHING - Class C
+- `10.0.0.0/32` means only 1 IP address
+
+`10.0.0.0/16` is the equivalent of `1234` as a password. You should consider
+other ranges that people might use to ensure it does not overlap.
+
+#### 1.5.1.8. IPv6 - RFC 8200 (2017)
 
 `2001:0db8:28ac:0000:0000:82ae:3910:7334`
 

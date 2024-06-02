@@ -2230,7 +2230,7 @@ Session & State: for security communication between client and server
 This is like your home internet router, many devices (laptop, computer, phone, ...) 
 will use same public IP with different public Port.
 
-#### 1.5.1.3. Classful Addressing
+#### 1.5.1.5. Classful Addressing
 
 - Class A range
   - Starts at `0.0.0.0` and ends at `127.255.255.255`.
@@ -2243,7 +2243,7 @@ will use same public IP with different public Port.
   - Half of range class B
   - Starts at `192.0.0.0` and ends at `223.255.255.255`.
 
-#### 1.5.1.4. Internet / Private IPs - RFC1918
+#### 1.5.1.6. Internet / Private IPs - RFC1918
 
 These can't communicate over the internet and are used internally only
 
@@ -2253,13 +2253,13 @@ These can't communicate over the internet and are used internally only
 
 Private network can be used/reused freely.
 
-#### 1.5.1.5. IP Subnetting
+#### 1.5.1.7. IP Subnetting
 
 ![img.png](ip-subnetting-1.png)
 
 ![img.png](ip-subnetting-2.png)
 
-#### 1.5.1.5. Classless inter-domain routing (CIDR)
+#### 1.5.1.8. Classless inter-domain routing (CIDR)
 
 CIDR networks are represented by the starting IP address of the network
 called the network address and the prefix.
@@ -2274,7 +2274,7 @@ CIDR Example: `10.0.0.0/16`
 - `10.0.0.0/17` and `10.0.128.0/17` are each half of the original example.
   - This is called **subnetting**
 
-#### 1.5.1.6. IP address notations to remember
+#### 1.5.1.9. IP address notations to remember
 
 - `0.0.0.0/0` means all IP addresses
 - `10.0.0.0/8` means 10.ANYTHING - Class A
@@ -2285,7 +2285,7 @@ CIDR Example: `10.0.0.0/16`
 `10.0.0.0/16` is the equivalent of `1234` as a password. You should consider
 other ranges that people might use to ensure it does not overlap.
 
-#### 1.5.1.8. IPv6 - RFC 8200 (2017)
+#### 1.5.1.10. IPv6 - RFC 8200 (2017)
 
 `2001:0db8:28ac:0000:0000:82ae:3910:7334`
 
@@ -2343,7 +2343,28 @@ splitting the network into 4 different AZs.
 This allows for at least one subnet in each AZ, and one spare.
 Taking a /16 subnet and splitting it 16 ways will make each a /20.
 
+![img.png](size-vpc.png)
+
+start with /16 for VPC = 2 x / 17 = 4 x /18 = 8 x /19 = 16 x /20 (recommended)
+start with /17 for VPC = 2 x / 18 = 4 x /19 = 8 x /20 = 16 x /21
+...        /18         ...                 ...        = 16 x /22
+
+- Animals4life could become a huge global entity
+- Use the 10.16 -> 10.127 range (avoiding google)
+- Start at 10.16 (US1), 10.32 (US2), 10.48 (US3), 10.64 (EU), 10.80 (Australia)
+each AWS account has 1/4th
+- 10.16 -> 10.31 split to 4 for 4 accounts
+  - 10.16 -> 10.19 US1 - GENERAL Account    (VPC1: 10.16 VPC2: 10.17 VPC3: 10.18 VPC4: 10.19)
+  - 10.20 -> 10.23 US1 - PROD Account       (VPC1: 10.20 VPC2: 10.21 VPC3: 10.22 VPC4: 10.23)
+  - 10.24 -> 10.27 US1 - DEV Account        (VPC1: 10.24 VPC2: 10.25 VPC3: 10.26 VPC4: 10.27)
+  - 10.28 -> 10.31 US1 - RESERVED Account   (VPC1: 10.28 VPC2: 10.29 VPC3: 10.30 VPC4: 10.31)
+- ....
+- /16 per VPC - 3 AZ (+1), 3 Tiers (+1) - 16 subnets
+- /16 split into 16 subnets = /20 per subnet (4091 IPs)
+
 ### 1.5.3. Custom VPC
+
+![img.png](vpc-endstate.png)
 
 - Regional Isolated and Resilient Service.
   - Operates from all AZs in that region
@@ -2394,6 +2415,22 @@ Two options that manage how DNS works in a VPC:
   - If true, instances in the VPC can use the DNS IP address.
   - If false, this is not available.
 
+#### 1.5.3.3. [DEMO] Create VPC
+
+Create VPC:
+
+![img.png](create-vpc.png)
+
+Go to VPC -> Edit VPC settings:
+
+![img.png](edit-vpc.png)
+
+Result: 
+
+![img.png](vpc-result.png)
+
+![img.png](vpc-currentstate.png)
+
 ### 1.5.4. VPC Subnets
 
 - AZ Resilient subnetwork of a VPC.
@@ -2439,6 +2476,55 @@ through to subnets.
   - This is needed to make a subnet public.
 - Auto Assign IPv6 address
   - For this to work, the subnet and VPC need an allocation of addresses.
+
+#### 1.5.4.4. [DEMO] VPC Subnets
+
+We're going to change the previous VPC into a multi-tier VPC that's configured
+with all of these subnets.
+
+Noticed that the web tier subnets on the right are blue on this diagram instead of green
+on the final completed diagram. 
+
+Blue means private subnets and green means public subnets.
+Subnets inside of VPC start off entirely private and they take some configuration to make them public.
+
+![img.png](vpc-subnets.png)
+
+Go to VPC -> Subnets -> Create Subnets
+
+```bash
+NAME CIDR AZ CustomIPv6Value
+
+sn-reserved-A 10.16.0.0/20 AZA IPv6 00
+sn-db-A 10.16.16.0/20 AZA IPv6 01
+sn-app-A 10.16.32.0/20 AZA IPv6 02
+sn-web-A 10.16.48.0/20 AZA IPv6 03
+
+sn-reserved-B 10.16.64.0/20 AZB IPv6 04
+sn-db-B 10.16.80.0/20 AZB IPv6 05
+sn-app-B 10.16.96.0/20 AZB IPv6 06
+sn-web-B 10.16.112.0/20 AZB IPv6 07
+
+sn-reserved-C 10.16.128.0/20 AZC IPv6 08
+sn-db-C 10.16.144.0/20 AZC IPv6 09
+sn-app-C 10.16.160.0/20 AZC IPv6 0A
+sn-web-C 10.16.176.0/20 AZC IPv6 0B
+
+Remember to enable auto assign ipv6 on every subnet you create.
+```
+
+![img.png](create-subnets-1.png)
+![img.png](create-subnets-2.png)
+
+...
+
+Remember to downside IPv6 subnet CIDR two times to fit in that IPv6 VPC.
+
+We will have 4 times to create subnets for each AZ.
+
+Go to each subnets -> actions -> edit subnets setting:
+
+![img.png](create-subnets-3.png)
 
 ### 1.5.5. VPC Routing and Internet Gateway
 

@@ -2531,6 +2531,7 @@ Go to each subnets -> actions -> edit subnets setting:
 VPC Router is a highly available device available in every VPC which moves
 traffic from somewhere to somewhere else.
 Router has a network interface in every subnet in the VPC.
+In every subnet ... 'network + 1' address
 Routes traffic between subnets.
 
 Route tables defines what the VPC router will do with traffic
@@ -2546,9 +2547,10 @@ associated at a time, but a route table can be associated by many subnets.
 
 When traffic leaves the subnet that this route table is associated with, the
 VPC router reviews the IP packets looking for the destination address.
-The traffic will try to match the route against the route table. If there
+The traffic will try to match the route against the route table.  If there
 are more than one routes found as a match, the prefix is used as a priority.
-The higher the prefix, the more specific the route, thus higher priority.
+The higher the prefix, the more specific the route, thus higher priority
+(Example: 1 specific IP address with a /32 prefix > network match > default route 0.0.0.0/0)
 If the target says local, that means the destination is in the VPC itself.
 Local route can never be updated, they're always present and the local route
 always takes priority. This is the exception to the prefix rule.
@@ -2567,6 +2569,10 @@ or AWS Public Zones (S3, SQS, SNS, etc.)
 - Runs from within the AWS public zone.
 
 #### 1.5.5.3. Using IGW
+
+How to make a subnet public:
+
+![img.png](using-igw.png)
 
 In this example, an EC2 instance has:
 
@@ -2598,6 +2604,19 @@ about the private address and instead uses the instance's public IP address.
 If the instance uses an IPv6 address, that public address is good to go. The IGW
 does not translate the packet and only pushes it to a gateway.
 
+![img.png](using-igw-2.png)
+![img_1.png](using-igw-3.png)
+
+**IMPORTANT to remember: no point is the operating system of the EC2 instance aware of its public IP. 
+It just has a private IP. We cannot assign the public IP version 4 address of an EC2 instance directly to the operating system. 
+It has no knowledge of this public address. Configuring an EC2 instance appropriately using IP version 4 
+means putting the private IP address only. The public address never touches the instance.**
+
+For IP version 6, all addresses that AWS uses are natively, publicly routeable. 
+The operating system does have the IP address version 6 address configured on it, 
+that's the publicly routeable address, and all the internet gateway does is pass 
+traffic from an instance to an internet server and then back again, it doesn't do any translation.
+
 #### 1.5.5.4. Bastion Host / Jumpbox
 
 It is an instance in a public subnet inside a VPC.
@@ -2608,6 +2627,88 @@ Used as a management point or as an entry point for a private only VPC.
 This is an inbound management point. Can be configured to only allow
 specific IP addresses or to authenticate with SSH. It can also integrate
 with your on premise identification service.
+
+#### 1.5.5.5. [DEMO] Configuring A4L public subnets and Jumpbox
+
+We're going to configure the 3 web subnets, so Web A, Web B, and Web c to be public subnets.
+
+Step 1: Create an IGW attached to this VPC.
+
+VPC -> Internet gateways -> Create internet gateway
+
+![img.png](create-igw.png)
+
+From IGW created -> Actions -> Attach to VPC
+
+![img.png](igw-attach-to-vpc.png)
+
+Step 2: Create a route table.
+
+VPC -> Route tables -> Create route table
+
+![img.png](create-route-tables.png)
+
+From that route table -> Subnet associations -> Edit subnet associations
+
+![img.png](edit-subnet-associations.png)
+
+From that route table -> Routes -> Edit routes
+
+![img.png](edit-routes.png)
+
+Step 3: Edit WebA, WebB, WebC subnets
+
+Subnets -> Choose WebA, WebB, WebC -> Actions -> Edit subnet settings: 
+Enable auto-assign public IPv4 address
+
+![img.png](enable-ipv4-web-subnet.png)
+
+Step 4: Testing - Launch an EC2 instance into the WebA subnet
+
+EC2 -> Instances -> Launch instance
+
+Name and tags: a4l-bastion
+
+Application and OS Images (Amazon Machine Image): default
+
+Instance type: default
+
+Key pair (login): A4L (Created from beginning lesson)
+
+Network settings: 
+
+- VPC: a4l-vpc1 
+- Subnet: sn-web-A 
+- Auto-assign public IP: Enable 
+- Auto-assign IPv6 IP: Enable
+- Firewall (security groups): Create SG
+- Security group name: A4L-BASTION-SG
+- Description: A4L-BASTION-SG
+- Inbound Security Group Rules: default
+
+Step 5: Connect to EC2 Instance and verify:
+
+Whenever you're connecting to EC2 instances which have a public IP version 4 address, 
+you've always got the ability to use either EC2 Instance Connect or a local SSH client.
+
+### 1.5.6. Stateful vs Stateless Firewalls
+
+Every connection has a request and a response. They can both be in either direction, 
+a request can be inbound or outbound, and a response will always be the inverse to 
+the directionality of the request (depend on perspective).
+
+A stateless firewall means that it doesn't understand the state of connections. 
+It sees the request connection and the response as two individual parts. 
+You need to think about allowing or denying them as two parts. 
+You need two rules for INBOUND and OUTBOUND.
+The request component is always going to be to a well-known port (ex: allow connections to TCP port 443), 
+the response is always from the server to a client, but this always uses a random ephemeral port. 
+Because the firewall is stateless, it has no way of knowing which specific port is used for the response.
+Any rules that you create for the response will need to often allow the full range of ephemeral ports to any destination. 
+(This is the limitation of stateless firewall)
+
+A stateful firewall is intelligent enough to identify the REQUEST and RESPONSE components of a connection as being related.
+ALLOWING the REQUEST (INBOUND or OUTBOUND), means the RESPONSE (INBOUND or OUTBOUND) is automatically allowed.
 
 ### 1.5.6. Network Access Control List (NACL)
 

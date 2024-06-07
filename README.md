@@ -2710,7 +2710,7 @@ Any rules that you create for the response will need to often allow the full ran
 A stateful firewall is intelligent enough to identify the REQUEST and RESPONSE components of a connection as being related.
 ALLOWING the REQUEST (INBOUND or OUTBOUND), means the RESPONSE (INBOUND or OUTBOUND) is automatically allowed.
 
-### 1.5.6. Network Access Control List (NACL)
+### 1.5.7. Network Access Control List (NACL)
 
 Network Access Control Lists (NACLs) are a type of security filter
 (like firewalls) which can filter traffic as it enters or leaves a subnet.
@@ -2753,7 +2753,7 @@ The rule at the bottom with `*` is the **implicit deny**
 This cannot be edited and is defaulted on each rule list.
 If no other rules match the traffic being evaluated, it will be denied.
 
-#### 1.5.6.1. NACLs example below
+#### 1.5.7.1. NACLs example below
 
 - Bob wants to view a blog using https(tcp/443)
 - We need a NACL rule to allow TCP on port 443.
@@ -2773,7 +2773,7 @@ as well as the inbound port. This is the ephemeral port.
 back on a different port.
 - This back and forth communication can be hard to configure for.
 
-#### 1.5.6.2. NACL Exam PowerUp
+#### 1.5.7.2. NACL Exam PowerUp
 
 - NACLs are stateless
   - Initiation and response traffic are separate streams requiring two rules.
@@ -2785,14 +2785,18 @@ thing, you need to use NACLs.
 - They only see IPs, ports, protocols, and other network connections.
 No logical resources can be changed with them.
 - NACLs cannot be assigned to specific AWS resources.
-- NACLs can be used with security groups to add explicit deny (Bad IPs/nets)
-- One subnet can only be assigned to one NACL at a time.
+- NACLs can be used with security groups to add explicit deny (Bad IPs/nets): 
+generally you would use security groups to allow traffic and you'd use NACLs to deny traffic.
+- One subnet can only be assigned to one NACL at a time (default or custom).
+- A NACL can be associated with MANY Subnets.
 
 NACLs are processed in order starting at the lowest rule number until
 it gets to the catch all. A rule with a lower rule number will be processed
 before another rule with a higher rule number.
 
-### 1.5.7. Security Groups
+### 1.5.8. Security Groups
+
+SGs is the second type of security filtering feature commonly used within AWS.
 
 - SGs are boundaries which can filter traffic.
 - Attached to a resource and not a subnet.
@@ -2800,17 +2804,19 @@ before another rule with a higher rule number.
 - SGs are stateful.
   - Only one inbound rule is needed.
   - They see traffic and response as the same thing.
+- SGs have a hidden implicit **Deny**.
+  - Anything that is not allowed in the rule set for the SG is implicitly denied.
+- SG cannot explicit deny anything (only ALLOW or Implicit DENY).
+  - Can't block specific bad actors.
+  - NACLs are used in conjunction with SGs to do explicit denys.
+- Security Groups apply to just instances, not the whole subnet.
 - Understand AWS logical resources so they're not limit to IP traffic only.
   - Can have a source and destination referencing the instance and not the IP.
 - Default SG is created in a VPC to allow all traffic.
   - Does so by referencing itself. Anything this SG is attached to is matched
-  by this rule.
-- SGs have a hidden implicit **Deny**.
-  - Anything that is not allowed in the rule set for the SG is implicitly denied.
-- SG cannot explicit deny anything.
-  - NACLs are used in conjunction with SGs to do explicit denys.
+    by this rule.
 
-#### 1.5.7.1. SGs vs NACL
+#### 1.5.8.1. SGs vs NACL
 
 - NACLs are used when products cannot use SGs, e.g. NAT Gateways.
 - NACLs are used when adding explicit deny, such as bad IPs or bad actors.
@@ -2818,7 +2824,9 @@ before another rule with a higher rule number.
 - NACLs are associated with a subnet and only filter traffic that crosses
 that boundary. If the resource is in the same subnet, it will not do anything.
 
-### 1.5.8. Network Address Translation (NAT) Gateway
+Best link to read: https://sysdig.com/blog/aws-security-groups-guide/
+
+### 1.5.9. Network Address Translation (NAT) Gateway
 
 Set of different processes that can address IP packets by changing
 their source or destination addresses.
@@ -2838,20 +2846,149 @@ returned.
   - If that AZ fails, there is no recovery.
 - For a fully region resilient service, you must deploy one NATGW in each AZ
 with a Route Table in each AZ with NATGW as target.
+- Managed service, scales up to 45 Gbps. Can deploy multiple NATGW to increase
+  bandwidth.
+- AWS charges on usage per hour and data volume processed.
 - NAT instance is limited by capabilities of the instance it is running on and that instance is also general purpose, so won't offer the same level of custom design performance as NAT Gateway.
 - NAT instance is single instance running in single AZ it'll fail if EC2 hardware fails, network fails, storage fails or AZ itself fails.
 - NAT Gateway has benefit over NAT instance, inside one AZ it is highly available.
 - You can connect to NAT instance just like any other instance, you can use them as Bastion host or can use them for port forwarding.
 - With NAT Gateway it is not possible, it is managed service. NAT Gateway cannot be used as Bastion host and it cannot do port forwarding.
 - You cannot use SG with NAT instance, you can only use NACLs.
-- NAT is not required for IPv6. Inside AWS all IPv6 addresses are publicly routable. IG works with all IPv6 addresses directly.
-- That means if you choose to make an instance in private subnet that have a default IPv6 route to IG, it'll become public instance.
-- Managed service, scales up to 45 Gbps. Can deploy multiple NATGW to increase
-bandwidth.
-- AWS charges on usage per hour and data volume processed.
 
 NATGW cannot do port forwarding or be a bastion server. In that case it might
 be necessary to run a NAT EC2 instance instead.
+
+- NAT is not required for IPv6. Inside AWS all IPv6 addresses are publicly routable. IG works with all IPv6 addresses directly. NAT Gateway don't work with IPv6.
+- That means if you choose to make an instance in private subnet that have a default IPv6 route to IG, it'll become public instance. (IPv6 ::0 Route + IG -> bi-directional connectivity).
+- IPv6 ::0 Route + Egress-Only IG -> Outbound Only.
+
+Different between NAT Gateway and Internet Gateway:
+https://www.geeksforgeeks.org/difference-between-internet-gateway-and-nat-gateway/
+
+### 1.5.10. [DEMO] Implementing private internet access using NAT Gateways
+
+![img.png](nat-gateway.png)
+
+Use template url from the course to deploy all by cloudformation
+
+Once completed click on Resources we will use A4LINTERNALTEST (EC2 Instance) to test with NAT Gateway, 
+click to Physical ID link to that EC2 Instance
+
+We cannot access to that instance normally like we did before:
+![img.png](ec2-instance-connect-alert.png)
+
+But we can access by Session Manager
+
+Go to VPC -> NAT gateways -> Create NAT gateway
+
+AZ A:
+- Name: a4l-vpc1-natgw-A
+- Subnet: sn-web-A
+- Connectivity type: public
+- Elastic IP allocation ID: Click on Allocate Elastic IP to Assign an Elastic IP address to the NAT gateway.
+
+AZ B: ...
+  
+AZ C: ...
+
+Go to VPC -> Route tables -> Create Route Table:
+
+Route table 1:
+- Name: a4l-vpc1-rt-privateA
+- VPC: a4l-vpc1
+
+Route table 2:
+- Name: a4l-vpc1-rt-privateB
+- VPC: a4l-vpc1
+
+Route table 3:
+- Name: a4l-vpc1-rt-privateC
+- VPC: a4l-vpc1
+
+Create a default route within each of these route tables, that route is going to point at the NAT gateway in the same AZ.
+
+- Go to Route table 1 (a4l-vpc1-rt-privateA) -> Edit routes
+![img.png](route_table_1.png)
+- Go to Route table 2 (a4l-vpc1-rt-privateB) -> Edit routes
+- Go to Route table 3 (a4l-vpc1-rt-privateC) -> Edit routes
+
+Associated these route tables with subnets
+
+- Go to Route table 1 (a4l-vpc1-rt-privateA) -> Subnet associations -> Edit subnet associations:
+  Choose sn-db-A, sn-app-A, sn-reserved-A
+- Go to Route table 2 (a4l-vpc1-rt-privateB) -> Subnet associations -> Edit subnet associations:
+  Choose sn-db-B, sn-app-B, sn-reserved-B
+- Go to Route table 3 (a4l-vpc1-rt-privateC) -> Subnet associations -> Edit subnet associations:
+  Choose sn-db-C, sn-app-C, sn-reserved-C
+
+Now go to EC2 Instance and we can Ping 1.1.1.1 to test.
+
+### 1.5.11. Quiz
+
+1. What service does a VPC provide
+  - **Isolated Network (Correct)**
+  - Isolated Account
+  - Public Only network services
+  - None of the above
+
+2. What are true about default VPCs and custom VPCs (choose all that apply)
+  - Regions can only have 1 custom VPC and many default VPCs
+  - **Regions can only have 1 default VPC and many custom VPCs (Correct)**
+  - **Custom VPCs allow flexible network configuration, the default VPC has a fixed scheme (Correct)**
+  - Default VPC can only be used for a limited number of services
+  - **Some services can behave oddly if the default VPC doesn't exist (Correct)**
+  - **Default VPCs can be recreated (Correct)**
+  - Default VPCs need a support ticket to recreate
+
+3. What are the valid sizes of a VPC
+  - Min /16 & Max /28
+  - **Max /16 & Min /28 (Correct)**
+  - Min /24 & Max /28
+  - Max /8 & Min /32
+
+4. What is the Minimum and Maximum Size of a VPC Subnet
+  - **Min /28 & Max /16 (Correct)**
+  - Min /8 & Max /32
+  - Min /28 & Max /24
+  - Min /24 & Max /28
+
+5. What is true for a VPC Subnet & AZ
+  - **An AZ can have many subnets, a subnet is in one AZ (Correct)**
+  - An AZ can have many subnets, a subnet can be in many AZs
+  - An AZ can have 1 subnet, a subnet can be in one AZ
+  - An AZ can have 1 subnet, a subnet can be in many AZs
+
+6. How many IP addresses are reserved in each VPC Subnet
+  - 0
+  - 1
+  - 2
+  - **5 (Correct)**
+  - 10
+
+7. How can an Internet Gateway (IGW) be configured to be highly available
+  - Add the AZs which are used to its configuration
+  - It cannot be HA
+  - **It's HA by default - attached to a VPC (Correct)**
+  - Create and attach multiple IGWs to the VPC
+
+8. What is true about SG's and NACLs (choose 2)
+  - SGs can DENY and ALLOW traffic
+  - **SGs can only ALLOW traffic (Correct)**
+  - NACLs can only ALLOW traffic
+  - **NACLs can ALLOW and DENY traffic (Correct)**
+
+9. What function does NAT serve
+  - Allows IPv4 and IPv6 public instances to access the internet
+  - Allows IPv4 and IPv6 private instances to access the internet
+  - **Allows IPv4 private instances outgoing access the internet (Correct)**
+  - Allows IPv6 private instances outgoing access the internet
+
+10. What is true of Route Tables and VPC Subnets (choose two)
+  - A subnet can have multiple route tables
+  - A subnet can have one Route table attached (Correct)
+  - A route table can be associated with multiple subnets (Correct)
+  - A route table can be associated with only one subnet
 
 ---
 

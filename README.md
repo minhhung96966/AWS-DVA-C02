@@ -2986,8 +2986,8 @@ Now go to EC2 Instance and we can Ping 1.1.1.1 to test.
 
 10. What is true of Route Tables and VPC Subnets (choose two)
   - A subnet can have multiple route tables
-  - A subnet can have one Route table attached (Correct)
-  - A route table can be associated with multiple subnets (Correct)
+  - **A subnet can have one Route table attached (Correct)**
+  - **A route table can be associated with multiple subnets (Correct)**
   - A route table can be associated with only one subnet
 
 ---

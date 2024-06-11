@@ -3138,18 +3138,50 @@ full instance type
   - n: network optimized
   - e: extra capacity for ram or storage
 
-### 1.6.4. Storage Refresher
+![img.png](ec2-instances.png)
+
+Useful link: 
+
+https://aws.amazon.com/ec2/instance-types/
+
+https://ec2instances.info/
+
+### 1.6.4. [DEMO] EC2 SSH vs EC2 Instance Connect
+
+These are both methods which are used for connecting to EC2 instances both with 
+public IP version 4 addressing and IP version 6 addressing.
+
+To use a local SSH client, you need to have network connectivity to the EC2 instance, 
+you need a key pair, and SG allows for port 22 from any source 0.0.0.0/0 (IPv4) and ::/0 (IPv6)
+
+Connect to your Linux instance from Windows with PuTTY:
+https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/putty.html
+
+If we edit inbound rule from security group from port 22 from Source: 0.0.0.0/0 (IPv4) to Source: My IP
+then we still connect to EC2 with SSH client. But we cannot connect with EC2 Instance Connect.
+EC2 Instance Connect is not actually connect from your local machine, you make a connection through to AWS 
+and then once your connection arrives at AWS the EC2 Instance Connect service is then connecting to the EC2 instance.
+
+List of IP for AWS service.
+https://ip-ranges.amazonaws.com/ip-ranges.json
+
+You can find EC2 Instance Connect service IP address from your region to update in Inbound Rule to allow connection 
+from EC2 Instance Connect (in case you only want specific IP, because allow all 0.0.0.0/0 is a bad practice in PROD)
+
+### 1.6.5. Storage Refresher
 
 - **Instance Store**
   - Direct (local) attached storage
   - Super fast
+  - If the disk fails/hardware fails/EC2 instance move between host, the storage can be lost.
   - Ephemeral storage or temporary storage
 - **Elastic Block Store (EBS)**
   - Network attached storage
   - Volumes delivered over the network
+  - Highly resilient, separate from the Instance hardware
   - Persistent storage lives on past the lifetime of the instance
 
-#### 1.6.4.1. Three types of storage
+#### 1.6.5.1. Three types of storage
 
 - Block Storage: Volume presented to the OS as a collection of blocks. No
 structure beyond that. These are mountable and bootable. The OS will
@@ -3167,7 +3199,7 @@ with or without attached metadata. To retrieve the object, you need to provide
 the key and then the value will be returned. This is not mountable or
 bootable. It scales very well and can have simultaneous access.
 
-#### 1.6.4.2. Storage Performance
+#### 1.6.5.2. Storage Performance
 
 - IO Block Size: Determines how to split up the data.
 - IOPS: How many reads or writes a system can accommodate per second.

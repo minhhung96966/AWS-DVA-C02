@@ -3211,13 +3211,21 @@ This isn't the only part of the chain, but it is a simplification.
 A system might have a throughput cap. The IOPS might decrease as the block
 size increases.
 
-### 1.6.5. Elastic Block Store (EBS)
+### 1.6.6. Elastic Block Store (EBS)
 
 - Allocate block storage **volumes** to instances.
+- Can be encrypted using KMS.
+- Instances see block device and create file system on this device (ext3/4, xfs).
 - Volumes are isolated to one AZ.
   - The data is highly available and resilient for that AZ.
   - All of the data is replicated within that AZ. The entire AZ must have
   a major fault to go down.
+- Attached to one instance (or other service) over a storage network.
+- Detached and reattached, not lifecycle linked to one instance .. persistent.
+- Snapshot (backup) in S3. Create volume from snapshot (migrate between AZs).
+
+![img.png](ebs.png)
+
 - Two physical storage types available (SSD/HDD)
 - Varying level of performance (IOPS, T-put)
 - Billed as GB/month.
@@ -3231,7 +3239,7 @@ size increases.
     - maximum t-put for logs or media storage
   - Cold HDD (sc1)
 
-#### 1.6.5.1. General Purpose SSD (gp2)
+#### 1.6.6.1. General Purpose SSD (gp2)
 
 Uses a performance bucket architecture based on the IOPS it can deliver.
 The GP2 starts with 5,400,000 IOPS allocated. It is all available instantly.
@@ -3246,7 +3254,7 @@ This is the **baseline performance**
 Default for boot volumes and should be the default for data volumes.
 Can only be attached to one EC2 instance at a time.
 
-#### 1.6.5.2. Provisioned IOPS SSD (io1)
+#### 1.6.6.2. Provisioned IOPS SSD (io1)
 
 You pay for capacity and the IOPs set on the volume.
 This is good if your volume size is small but need a lot of IOPS.
@@ -3257,7 +3265,7 @@ This is good if your volume size is small but need a lot of IOPS.
 Good for latency sensitive workloads such as mongoDB.
 Multi-attach allows them to attach to multiple EC2 instances at once.
 
-#### 1.6.5.3. HDD Volume Types
+#### 1.6.6.3. HDD Volume Types
 
 - great value
 - great for high throughput vs IOPs
@@ -3284,7 +3292,7 @@ Two types
   - Burst of 80 MB/s per TiB
   - Max t-put of 250 MB/s
 
-#### 1.6.5.4. EBS Exam Power Up
+#### 1.6.6.4. EBS Exam Power Up
 
 - Volumes are created in an AZ, isolated in that AZ.
 - If an AZ fails, the volume is impacted.
@@ -3295,7 +3303,9 @@ if the whole AZ fails.
 - EBS maxes at 80k IOPS per instance and 64k vol (io1)
 - Max 2375 MB/s per instance, 1000 MiB/s (vol) (io1)
 
-### 1.6.6. EC2 Instance Store
+Useful link: https://viblo.asia/p/tim-hieu-ve-ebs-elastic-block-store-cua-aws-gGJ596EDKX2
+
+### 1.6.7. EC2 Instance Store
 
 - Local **block storage** attached to an instance.
 - Physically connected to one EC2 host.
@@ -3319,16 +3329,16 @@ The number, size, and performance of instance store volumes vary based on the
 type of instance used. Some instances do not have any instance store volumes
 at all.
 
-#### 1.6.6.1. Instance Store Exam PowerUp
+#### 1.6.7.1. Instance Store Exam PowerUp
 
 - Instance store volumes are local to EC2 host.
 - Can only be added at launch time. Cannot be added later.
-- Any data on instance store data is lost if it gets moved, or resized.
+- Any data on instance store data is lost if it gets moved, or resized or hardware failure.
 - Highest data performance in all of AWS.
 - You pay for it anyway, it's included in the price.
 - TEMPORARY
 
-### 1.6.7. EBS vs Instance Store
+### 1.6.8. EBS vs Instance Store
 
 If the read/write can be handled by EBS, that should be default.
 

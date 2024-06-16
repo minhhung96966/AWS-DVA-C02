@@ -3363,7 +3363,7 @@ When to use Instance Store
 - Rigid lifecycle link between storage and the instance.
   - This ensures the data is erased when the instance goes down.
 
-### 1.6.8. EBS Snapshots, restore, and fast snapshot restore
+### 1.6.9. EBS Snapshots, restore, and fast snapshot restore
 
 - Efficient way to backup EBS volumes to S3.
   - The data becomes region resilient.
@@ -3381,7 +3381,9 @@ Volumes can be created (restored) from snapshots.
 Snapshots can be used to move EBS volumes between AZs.
 Snapshots can be used to migrate data between volumes.
 
-#### 1.6.8.1. Snapshot and volume performance
+![img.png](snapshot-architecture.png)
+
+#### 1.6.9.1. Snapshot and volume performance
 
 - When creating a new EBS volume without a snapshot, the performance is
 available immediately.
@@ -3399,7 +3401,7 @@ able to do instant restores to. Each combination of Snapshot and AZ counts
 as one FSR set. You can have 50 FSR sets per region.
 FSR is not free and can get expensive with lost of different snapshots.
 
-#### 1.6.8.2. Snapshot Consumption and Billing
+#### 1.6.9.2. Snapshot Consumption and Billing
 
 Billed using a GB/month metric.
 20 GB stored for half a month, represents 10 GB-month.
@@ -3411,7 +3413,279 @@ This is not how EBS itself works.
 The data is incrementally stored which means doing a snapshot every 5 minutes
 will not necessarily increase the charge as opposed to doing one every hour.
 
-#### 1.6.8.3. EBS Encryption
+#### 1.6.9.3. [DEMO] EBS Volumes
+
+1-Click Deployment 
+
+-> 3 instances created:
+
+A4L-EBS-INSTANCE1-AZB
+
+A4L-EBS-INSTANCE1-AZA
+
+A4L-EBS-INSTANCE2-AZA
+
+-> 3 EBS volumes created (type gp3, size 8 GiB, IOPS 3000, Throughput 125, AZ 1a,1a,1b)
+
+All of these volumes are in use as the boot volumes for those three EC2 instances.
+
+##### 1.6.9.3.1. Instance 1
+
+Now we can manually create an EBS: EC2 -> Volumes -> Create volume: EBSTestVolume
+
+![img.png](create-volume.png)
+
+EBS after created can attach volume to attach to an instance A4L-EBS-INSTANCE1-AZA (need to select device name, ex: /dev/xvdb)
+
+Connect to EC2 Instance and test:
+
+```
+[ec2-user@ip-10-16-61-199 ~]$ lsblk              // List block devices.
+NAME      MAJ:MIN RM SIZE RO TYPE MOUNTPOINTS    // Root device used to boot the instance.
+xvda      202:0    0   8G  0 disk
+├─xvda1   202:1    0   8G  0 part /
+├─xvda127 259:0    0   1M  0 part
+└─xvda128 259:1    0  10M  0 part /boot/efi      // EBS volume that we just attached to this instance.
+xvdb      202:16   0  10G  0 disk
+
+[ec2-user@ip-10-16-61-199 ~]$ sudo file -s /dev/xvdb  // Check whether there is a file system on this block device.
+/dev/xvdb: data                                       // There isn't any file system on this device.
+
+[ec2-user@ip-10-16-61-199 ~]$ sudo mkfs -t xfs /dev/xvdb                       // Create file system on this raw block device.
+meta-data=/dev/xvdb              isize=512    agcount=4, agsize=655360 blks
+         =                       sectsz=512   attr=2, projid32bit=1
+         =                       crc=1        finobt=1, sparse=1, rmapbt=0
+         =                       reflink=1    bigtime=1 inobtcount=1
+data     =                       bsize=4096   blocks=2621440, imaxpct=25
+         =                       sunit=0      swidth=0 blks
+naming   =version 2              bsize=4096   ascii-ci=0, ftype=1
+log      =internal log           bsize=4096   blocks=16384, version=2
+         =                       sectsz=512   sunit=0 blks, lazy-count=1
+realtime =none                   extsz=4096   blocks=0, rtextents=0
+
+[ec2-user@ip-10-16-61-199 ~]$ sudo file -s /dev/xvdb                  // Check whether there is a file system on this block device.
+/dev/xvdb: SGI XFS filesystem data (blksz 4096, inosz 512, v2 dirs)
+
+[ec2-user@ip-10-16-61-199 ~]$ sudo mkdir /ebstest     // Create folder name ebstest.
+
+[ec2-user@ip-10-16-61-199 ~]$ sudo mount /dev/xvdb /ebstest  // Mount the file system that we just created on this EBS volume into that folder.
+
+[ec2-user@ip-10-16-61-199 ~]$ cd /ebstest
+
+[ec2-user@ip-10-16-61-199 ebstest]$ sudo nano amazingtestfile.txt
+
+[ec2-user@ip-10-16-61-199 ebstest]$ ls -la
+total 4
+drwxr-xr-x.  2 root root  33 Jun 14 06:23 .
+dr-xr-xr-x. 19 root root 252 Jun 14 06:17 ..
+-rw-r--r--.  1 root root   6 Jun 14 06:23 amazingtestfile.txt
+
+[ec2-user@ip-10-16-61-199 ebstest]$ cat amazingtestfile.txt 
+Hello
+
+[ec2-user@ip-10-16-61-199 ebstest]$ sudo reboot    // Reboot Instance.
+
+Broadcast message from root@localhost on pts/1 (Fri 2024-06-14 06:25:41 UTC):
+
+The system will reboot now!
+
+[ec2-user@ip-10-16-61-199 ~]$ df -k // Verify whether we can still see our volume attached to this instance
+Filesystem     1K-blocks    Used Available Use% Mounted on
+devtmpfs            4096       0      4096   0% /dev
+tmpfs             486168       0    486168   0% /dev/shm
+tmpfs             194468    2896    191572   2% /run
+/dev/xvda1       8310764 1604572   6706192  20% /
+tmpfs             486172       0    486172   0% /tmp
+/dev/xvda128       10202    1310      8892  13% /boot/efi
+tmpfs              97232       0     97232   0% /run/user/1000
+```
+
+Can't see the file system. Because before we rebooted this instance we used the mount command 
+to manually mount the file system on our EBS volume into the EBS test folder.
+It doesn't automatically mount that file system when the instance restarts.
+To do that we need to configure it to auto mount when the instance starts up.
+
+```
+[ec2-user@ip-10-16-61-199 ~]$ sudo blkid // Get unique id of all EBS volume attached to this instance.
+/dev/xvda128: SEC_TYPE="msdos" UUID="D6C4-DA90" BLOCK_SIZE="512" TYPE="vfat" PARTLABEL="EFI System Partition" PARTUUID="11e41d8e-dee8-4c97-a1e4-9dab7d22bf71"
+/dev/xvda127: PARTLABEL="BIOS Boot Partition" PARTUUID="9c4a6d1a-eaff-4f1c-81e9-c078d27058e9"
+/dev/xvda1: LABEL="/" UUID="f2b2ef41-737e-43c2-8746-a8a3b0a9feb8" BLOCK_SIZE="4096" TYPE="xfs" PARTLABEL="Linux" PARTUUID="78211cfb-c3f9-4d33-8fa9-b74de39853b2"
+/dev/xvdb: UUID="5ebb1204-0713-4a61-84a8-99e934d3324a" BLOCK_SIZE="512" TYPE="xfs"
+
+[ec2-user@ip-10-16-61-199 ~]$ sudo nano /etc/fstab
+
+  GNU nano 5.8                                                  /etc/fstab                                                  Modified  
+#
+UUID=f2b2ef41-737e-43c2-8746-a8a3b0a9feb8     /           xfs    defaults,noatime  1   1
+UUID=D6C4-DA90        /boot/efi       vfat    defaults,noatime,uid=0,gid=0,umask=0077,shortname=winnt,x-systemd.automount 0 2
+UUID=5ebb1204-0713-4a61-84a8-99e934d3324a /ebstest  xfs  defaults,nofail
+
+
+[ec2-user@ip-10-16-61-199 ~]$ sudo mount -a // mount all of the volumes listed in the fstab file.
+
+[ec2-user@ip-10-16-61-199 ~]$ df -k
+Filesystem     1K-blocks    Used Available Use% Mounted on
+devtmpfs            4096       0      4096   0% /dev
+tmpfs             486168       0    486168   0% /dev/shm
+tmpfs             194468    2900    191568   2% /run
+/dev/xvda1       8310764 1604584   6706180  20% /
+tmpfs             486172       0    486172   0% /tmp
+/dev/xvda128       10202    1310      8892  13% /boot/efi
+tmpfs              97232       0     97232   0% /run/user/1000
+/dev/xvdb       10420224  105708  10314516   2% /ebstest
+
+[ec2-user@ip-10-16-61-199 ~]$ cd /ebstest
+
+[ec2-user@ip-10-16-61-199 ebstest]$ ls -la
+total 4
+drwxr-xr-x.  2 root root  33 Jun 14 06:23 .
+dr-xr-xr-x. 19 root root 252 Jun 14 06:17 ..
+-rw-r--r--.  1 root root   6 Jun 14 06:23 amazingtestfile.txt
+```
+
+amazingtestfile still exists within this folder. Data on this file system is persistent 
+and it's available even after we reboot this EC2 instance. 
+That's different than Instance Store volumes.
+
+##### 1.6.9.3.2. Instance 2
+
+Now we stop Instance 1A and detach volume EBSTestVolume. And attach volume to 2A (with device name /dev/sdb)
+
+Connect to EC2 instance 2A
+
+```
+[ec2-user@ip-10-16-57-210 ~]$ df -k
+Filesystem     1K-blocks    Used Available Use% Mounted on
+devtmpfs            4096       0      4096   0% /dev
+tmpfs             486168       0    486168   0% /dev/shm
+tmpfs             194468    2868    191600   2% /run
+/dev/xvda1       8310764 1605564   6705200  20% /
+tmpfs             486172       0    486172   0% /tmp
+/dev/xvda128       10202    1310      8892  13% /boot/efi
+tmpfs              97232       0     97232   0% /run/user/1000
+
+[ec2-user@ip-10-16-57-210 ~]$ lsblk
+NAME      MAJ:MIN RM SIZE RO TYPE MOUNTPOINTS
+xvda      202:0    0   8G  0 disk 
+├─xvda1   202:1    0   8G  0 part /
+├─xvda127 259:0    0   1M  0 part 
+└─xvda128 259:1    0  10M  0 part /boot/efi
+xvdb      202:16   0  10G  0 disk 
+
+[ec2-user@ip-10-16-57-210 ~]$ sudo file -s /dev/xvdb
+/dev/xvdb: SGI XFS filesystem data (blksz 4096, inosz 512, v2 dirs)
+
+[ec2-user@ip-10-16-57-210 ~]$ sudo mkdir /ebstest
+
+[ec2-user@ip-10-16-57-210 ebstest]$ sudo mount /dev/xvdb /ebstest
+
+[ec2-user@ip-10-16-57-210 ebstest]$ cd /ebstest
+
+[ec2-user@ip-10-16-57-210 ebstest]$ ls -la
+total 4
+drwxr-xr-x.  2 root root  33 Jun 14 06:23 .
+dr-xr-xr-x. 19 root root 252 Jun 16 05:00 ..
+-rw-r--r--.  1 root root   6 Jun 14 06:23 amazingtestfile.txt
+
+[ec2-user@ip-10-16-57-210 ebstest]$ cat amazingtestfile.txt 
+Hello
+```
+
+Stop EC2 instance 2A and detach EBS volume.
+
+##### 1.6.9.3.3. Instance 3
+
+We can't attach this EBS volume to 1B because EBS volumes are located in one specific AZ.
+To allow that process we need to create a snapshot. 
+Snapshots are stored on S3 and replicated between multiple availability zones in that region.
+Snapshots allow us to take a volume in one AZ and move it into another.
+
+Go to EBSTestVolume to create snapshot (description: EBSTestSnap).
+
+Go to the snapshot just created (EC2 -> EBS -> Snapshot) -> Create volume from snapshot: select region 1b, tag Name = EBSTestVolume-AZB
+
+Using this snapshot which is stored inside S3 to create a brand new volume inside AZ us-east-1b and attach to Instance 1B (device /dev/xvdf)
+
+```
+[ec2-user@ip-10-16-118-68 ~]$ lsblk
+NAME      MAJ:MIN RM SIZE RO TYPE MOUNTPOINTS
+xvda      202:0    0   8G  0 disk 
+├─xvda1   202:1    0   8G  0 part /
+├─xvda127 259:0    0   1M  0 part 
+└─xvda128 259:1    0  10M  0 part /boot/efi
+xvdf      202:80   0  10G  0 disk 
+
+[ec2-user@ip-10-16-118-68 ~]$ sudo file -s /dev/xvdf
+/dev/xvdf: SGI XFS filesystem data (blksz 4096, inosz 512, v2 dirs)
+
+[ec2-user@ip-10-16-118-68 ~]$ sudo mkdir /ebstest
+
+[ec2-user@ip-10-16-118-68 ~]$ sudo mount /dev/xvdf /ebstest
+
+[ec2-user@ip-10-16-118-68 ~]$ cd /ebstest
+
+[ec2-user@ip-10-16-118-68 ebstest]$ ls -la
+total 4
+drwxr-xr-x.  2 root root  33 Jun 14 06:23 .
+dr-xr-xr-x. 19 root root 252 Jun 16 05:37 ..
+-rw-r--r--.  1 root root   6 Jun 14 06:23 amazingtestfile.txt
+
+```
+
+Stop Instance and detach the volume. 
+
+In snapshot we have an option is Copy Snapshot and choose a different region.
+
+##### 1.6.9.3.4. InstanceStoreTest
+
+Create new EC2 Instance:
+
+Name: InstanceStoreTest
+
+AMI: Amazon Linux 2023 AMI - Architecture 64-bit(x86)
+
+Instance type: m5dn.large - Key pair: Proceed without a key pair (Not recommended)
+
+Network: VPC: a4l-vpc1 | Subnet: sn-web-A | Enable Auto-assign public IP and Auto-assign IPv6 IP | Select SG: EBSDEMO-InstanceSecurityGroup
+
+Storage: 8 Gib gp3 Root Volume
+
+Show details:
+
+![img.png](show-details-instance-store.png)
+
+Click to the instance created and we note that public IPv4 address is 54.234.156.247.
+This address is really useful because it will change if the EC2 instance moves between EC2 hosts.
+
+Connect to this instance.
+
+![img.png](ebsdemo-instance-store.png)
+
+![img.png](ebsdemo-instance-store-2.png)
+
+Reboot/restart the instance. Restarting is different than stop and start.
+EC2 -> Instance -> Right Click -> Reboot instance.
+
+File system is not mounted after the reboot.
+Because we didn't configure the Linux operating system to mount this file system when the instance is restarted.
+
+![img.png](ebsdemo-instance-store-3.png)
+
+instancestore.txt is still there because instance store volumes do persist through the restart of an EC2 instance.
+Restarting an EC2 instance does not move the instance from one EC2 host to another.
+
+Now right click to instance and stop and then start again.
+
+![img.png](ebsdemo-instance-store-4.png)
+
+After we've stopped and started the instance, it appears this instance store volume has no data. 
+When you restart an EC2 instance it restarts on the same EC2 host. But when you stop and start an EC2 instance, 
+the EC2 instance moves from one EC2 host to another and that means that it has access to completely different instance 
+store volumes than it did on that previous host. 
+
+All of the data, file system and the test file that we created on the instance store volume before is lost.
+
+#### 1.6.9.4. EBS Encryption
 
 Provides at rest encryption for block volumes and snapshots.
 
@@ -3448,7 +3722,7 @@ encrypted in the same way.
 Every time you create a new EBS volume from scratch, it creates a new
 data encryption key.
 
-##### 1.6.8.3.1. EBS Encryption Exam Power Up
+##### 1.6.9.4.1. EBS Encryption Exam Power Up
 
 - AWS accounts can be set to encrypt EBS volumes by default.
   - It will use the default CMK unless a different one is chosen.

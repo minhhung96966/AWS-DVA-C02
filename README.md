@@ -3749,6 +3749,8 @@ within one AZ.
 When you launch an instance with Security Groups, they are on the
 network interface and not the instance.
 
+![img.png](ec2-network-dns.png)
+
 #### 1.6.9.1. Elastic Network Interface (ENI)
 
 Has these properties
@@ -3776,12 +3778,21 @@ Outside of the VPC, the DNS will resolve to the public IP address.
 This allows one single DNS name for an instance, and allows traffic to resolve
 to an internal address inside the VPC and the public will resolve to a public
 IP address.
+This public IPv4 address is not directly attached to the instance or any of the 
+interfaces, it's associated with it, and the internet gateway handles that translation.
+In order to allow instances in a VPC, to use the same DNS name and to make sure 
+they're always using the private addresses inside the VPC, it always resolves to the private address.
+Outside of the VPC, the DNS will resolve to the public IPv4 address of that instance.
 - 1 elastic IP per private IPv4 address
+  - Elastic IP addresses are public IP v4 addresses and these are different than normal public IPv4 address.
+  - A Public IP address associated with an instance is not static and is lost when the instance is stopped, 
+  whereas an Elastic IP address is a static public address associated with your AWS account.
   - Can have 1 public elastic interface per private IP address on this interface.
 This is allocated to your AWS account.
 Can associate with a private IP on the primary interface or secondary interface.
 If you are using a public IPv4 and assign an elastic IP, the original IPv4
-address will be lost. There is no way to recover the original address.
+address will be lost. There is no way to recover the original address. 
+If you remove that elastic IP address, it will gain a new public IPv4 address.
 - 0 or more IPv6 address on the interface
   - These are by default public addresses.
 - Security groups
@@ -3793,9 +3804,12 @@ address will be lost. There is no way to recover the original address.
 - Source / destination checks
   - If traffic is on the interface, it will be discarded if it is not
   from going to or coming from one of the IP addresses
+  - This is the setting that need to disable for an EC2 instance to work as a NAT instance.
 
 Secondary interfaces function in all the same ways as primary interfaces except
 you can detach interfaces and move them to other EC2 instances.
+
+![img.png](ec2-network-dns-2.png)
 
 #### 1.6.9.2. ENI Exam PowerUp
 
@@ -3814,7 +3828,13 @@ address in a VPC. If you have instance to instance communication within
 the VPC, it will never leave the VPC. It does not need to touch the internet
 gateway.
 
-### 1.6.10. Amazon Machine Image (AMI)
+### 1.6.10. [DEMO] Manual Install of Wordpress on EC2
+
+![img.png](manual-install-wordpress.png)
+
+... to be continue ...
+
+### 1.6.11. Amazon Machine Image (AMI)
 
 Images of EC2 instances that can launch more EC2 instance.
 
@@ -3829,7 +3849,7 @@ Images of EC2 instances that can launch more EC2 instance.
   - Can have specific AWS accounts on the AMI.
 - Can create an AMI from an existing EC2 instance to capture the current config.
 
-#### 1.6.10.1. AMI Lifecycle
+#### 1.6.11.1. AMI Lifecycle
 
 1. Launch: EBS volumes are attached to EC2 devices using block IDs.
 
@@ -3852,7 +3872,7 @@ Images of EC2 instances that can launch more EC2 instance.
 4. Launch: When launching an instance, the snapshots are used to create new EBS
 volumes in the AZ of the EC2 instance and contain the same block device mapping.
 
-#### 1.6.10.2. AMI Exam PowerUps
+#### 1.6.11.2. AMI Exam PowerUps
 
 - AMI can only be used in one region
 - AMI Baking: creating an AMI from a configuration instance.
@@ -3862,9 +3882,44 @@ make changes, then make new AMI
 - Remember permissions by default are your account only
 - Billing is for the storage capacity for the EBS snapshots the AMI references.
 
-### 1.6.11. EC2 Pricing Models
+#### 1.6.11.3. [DEMO] Creating an Animals4life AMI
 
-#### 1.6.11.1. On-Demand Instances
+Created instance using the Amazon Linux 2 AMI, performed the Wordpress installation and initial configuration, 
+customized the banner.
+
+Use this as our template instance to create our AMI that can then be used to launch other instances.
+
+Stop the instance (because it can cause consistency issues) and right click select Image and 
+templates then select Create Image.
+
+![img.png](a4l-image.png)
+
+You'll see that in EBS Snapshot, initially it's creating a snapshot of the boot volume of 
+our original ec2 instance, so that's the first step, so in creating the AMI what needs to 
+happen is a snapshot of any of the EBS volumes attached to that.
+
+Go to AMIs, we'll see that the AMI is also creating it too.
+
+We're going to launch an additional instance using this AMI, this instance will have all of the configuration 
+that we had to do manually, automatically included.
+
+Right click on the AMI and select Launch instance from AMI.
+
+New instance won't just have the base Amazon Linux 2 OS, 
+it's going to have that base OS plus all of the custom configuration that 
+we did before creating the AMI. 
+
+Copy IPv4 public address and paste in the browser, we will see the WordPress installation dialog.
+
+Every AMI belongs in one region and it has a unique AMI ID. We are able to copy AMIs between regions.
+
+Right click to the AMI and choose Copy AMI and we can select other Destination Region.
+
+We can change AMI setting to public (not recommended) or shared to other accounts by Account id or to Organisations.
+
+### 1.6.12. EC2 Pricing Models
+
+#### 1.6.12.1. On-Demand Instances
 
 - Hourly rate based on OS, size, options, etc
 - Billed in seconds (60s min) or hourly
@@ -3874,7 +3929,7 @@ make changes, then make new AMI
 - New or uncertain application requirements
 - Short-term, spiky, or unpredictable workloads which can't tolerate disruption.
 
-#### 1.6.11.2. Spot Instances
+#### 1.6.12.2. Spot Instances
 
 Up to 90% off on-demand, but depends on the spare capacity.
 You can set a maximum hourly rate in a certain AZ in a certain region.
@@ -3884,7 +3939,7 @@ As the spot price increases, you pay more.
 Once this price increases past your maximum, it will terminate the instance.
 Great for data analytics when the process can occur later at a lower use time.
 
-#### 1.6.11.3. Reserved Instance
+#### 1.6.12.3. Reserved Instance
 
 Up to 75% off on-demand.
 The trade off is commitment.
@@ -3903,7 +3958,11 @@ Can perform scheduled reservation when you can commit to specific time windows.
 Great if you have a known stead state usage, email usage, domain server.
 Cheapest option with no tolerance for disruption.
 
-### 1.6.12. Instance Status Checks and Autorecovery
+https://www.youtube.com/watch?v=wNDOErA8WTY
+
+![img.png](ec2-purchase-options.png)
+
+### 1.6.13. Instance Status Checks and Autorecovery
 
 Every instance has two high level status checks
 
@@ -3922,9 +3981,25 @@ Autorecovery can kick in and help,
   - useful in a cluster
 - Reboot this instance
 
-### 1.6.13. Horizontal and Vertical Scaling
+### 1.6.14. [DEMO] Shutdown, Terminate & Termination Protection
 
-#### 1.6.13.1. Vertical Scaling
+Right click to the instance, go to Instance settings, and then Change termination protection.
+Click checkbox to enable Termination protection.
+
+Now that instance is protected against termination. We are  unable to terminate the instance now.
+This instance is now protected against accidental termination. 
+It protects against accidental termination but it also adds a specific 
+permission that is required in order to terminate an instance.
+
+Right click to the instance, go to instance settings and then Change shutdown behaviour.
+
+You're able to specify whether an instance should move into a stop state when shutdown, 
+or whether you want it to move into a terminate state.
+The default is stop, but we can choose terminate when it shuts down.
+
+### 1.6.15. Horizontal and Vertical Scaling
+
+#### 1.6.15.1. Vertical Scaling
 
 As customer load increases, the server may need to grow to handle more data.
 The server can increase in capacity, but this will require a reboot.
@@ -3935,7 +4010,7 @@ The server can increase in capacity, but this will require a reboot.
 - No application modification is needed.
   - Works for all applications, even monoliths (all code in one app)
 
-#### 1.6.13.2. Horizontal Scaling
+#### 1.6.15.2. Horizontal Scaling
 
 As the customer load increases, this adds additional capacity.
 Instead of one running copy of an application, you can have multiple versions
@@ -3955,14 +4030,14 @@ servers get equal parts of the load.
   - This means that the servers are what's called **stateless**, they are just dump instances of your application.
   - The application does care which instance you are connected to because your session is externally hosted somewhere else.
 
-#### 1.6.13.3. Benefits of Horizontal Scaling
+#### 1.6.15.3. Benefits of Horizontal Scaling
 
 - No disruption while scaling up or down.
 - No real limits to scaling.
 - Uses smaller instances is less expensive.
 - Allows for better granularity.
 
-### 1.6.14. Instance Metadata
+### 1.6.16. Instance Metadata
 
 > A service EC2 provides to instances. It is data about the instance that can be used to configure or manage a running instance. It is a way an instance or anything running inside an instance can access information about the environment it wouldn't be able to access otherwise.
 
@@ -3976,6 +4051,187 @@ Meta-data contains information on the:
 - You can find out about the networking or user-data among other things.
 - This is not authenticated or encrypted. Anyone who can gain access to the
 instance can see the meta-data. This can be restricted by local firewall
+
+#### 1.6.16.1 [DEMO] Instance Metadata
+
+Click to 1 click deployment link to create a stack with name METADATA
+
+We will have PublicEC2 Instance running in a public subnet with public IP addressing.
+
+Click to the instance and note down:
+
+- Private IPv4 address: 10.16.50.119
+- Public IPv4 address: 3.222.177.95
+- Public IPv4 address dns: ec2-3-222-177-95.compute-1.amazonaws.com
+- IPv6 address:
+
+Connect to the instance.
+
+```
+[ec2-user@ip-10-16-50-119 ~]$ ifconfig
+eth0: flags=4163<UP,BROADCAST,RUNNING,MULTICAST>  mtu 9001
+inet 10.16.50.119  netmask 255.255.240.0  broadcast 10.16.63.255  // private ipv4
+inet6 fe80::a4:6ff:fec7:dfb9  prefixlen 64  scopeid 0x20<link>    // ipv6
+ether 02:a4:06:c7:df:b9  txqueuelen 1000  (Ethernet)
+RX packets 55804  bytes 78596024 (74.9 MiB)
+RX errors 0  dropped 0  overruns 0  frame 0
+TX packets 5106  bytes 398591 (389.2 KiB)
+TX errors 0  dropped 0 overruns 0  carrier 0  collisions 0
+
+lo: flags=73<UP,LOOPBACK,RUNNING>  mtu 65536
+inet 127.0.0.1  netmask 255.0.0.0
+inet6 ::1  prefixlen 128  scopeid 0x10<host>
+loop  txqueuelen 1000  (Local Loopback)
+RX packets 48  bytes 3888 (3.7 KiB)
+RX errors 0  dropped 0  overruns 0  frame 0
+TX packets 48  bytes 3888 (3.7 KiB)
+TX errors 0  dropped 0 overruns 0  carrier 0  collisions 0
+```
+
+Public ipv4 address isn't visible in the instance OS on the networking configuration. 
+It's critical to know that at no point ever during the life cycle of an EC2 instance 
+is a Public IPv4 address configured within the OS.
+
+The OS has no exposure to the Public IPv4 address, that is performed by the internet gateway. 
+The internet gateway translates the private address into a public address.
+
+The EC2 Metadata Service is a service which runs behind all of the EC2 instances within your account. 
+And it's accessible using the Metadata IP address.
+
+Using curl to fetch attribute data:
+
+```
+[ec2-user@ip-10-16-50-119 ~]$ curl http://169.254.169.254/latest/meta-data/public-ipv4
+3.222.177.95
+[ec2-user@ip-10-16-50-119 ~]$ curl http://169.254.169.254/latest/meta-data/public-hostname
+ec2-3-222-177-95.compute-1.amazonaws.com
+```
+
+We can make this process even easier, we can use the AWS Instance Metadata Query Tool:
+
+```
+[ec2-user@ip-10-16-50-119 ~]$ wget http://s3.amazonaws.com/ec2metadata/ec2-metadata
+--2024-06-18 15:53:47--  http://s3.amazonaws.com/ec2metadata/ec2-metadata
+Resolving s3.amazonaws.com (s3.amazonaws.com)... 3.5.12.248, 3.5.22.241, 52.217.97.46, ...
+Connecting to s3.amazonaws.com (s3.amazonaws.com)|3.5.12.248|:80... connected.
+HTTP request sent, awaiting response... 200 OK
+Length: 7868 (7.7K) [binary/octet-stream]
+Saving to: ‘ec2-metadata’
+
+100%[============================================================================================>] 7,868       --.-K/s   in 0s      
+
+2024-06-18 15:53:47 (717 MB/s) - ‘ec2-metadata’ saved [7868/7868]
+
+[ec2-user@ip-10-16-50-119 ~]$ ls
+ec2-metadata
+[ec2-user@ip-10-16-50-119 ~]$ chmod u+x ec2-metadata
+[ec2-user@ip-10-16-50-119 ~]$ ec2-metadata -a
+ami-id: ami-0b3aef6bc281a13b2
+[ec2-user@ip-10-16-50-119 ~]$ ec2-metadata -z
+placement: us-east-1a
+[ec2-user@ip-10-16-50-119 ~]$ ec2-metadata -s
+security-groups: METADATA-InstanceSecurityGroup-lIUwsIWbDHth
+
+
+[ec2-user@ip-10-16-50-119 ~]$ ec2-metadata -help
+ec2-metadata v0.1.2
+Use to retrieve EC2 instance metadata from within a running EC2 instance. 
+e.g. to retrieve instance id: ec2-metadata -i
+                 to retrieve ami id: ec2-metadata -a
+                 to get help: ec2-metadata --help
+For more information on Amazon EC2 instance meta-data, refer to the documentation at
+https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/ec2-instance-metadata.html
+
+Usage: ec2-metadata <option>
+Options:
+--all                     Show all metadata information for this host (also default).
+-a/--ami-id               The AMI ID used to launch this instance
+-l/--ami-launch-index     The index of this instance in the reservation (per AMI).
+-m/--ami-manifest-path    The manifest path of the AMI with which the instance was launched.
+-n/--ancestor-ami-ids     The AMI IDs of any instances that were rebundled to create this AMI.
+-b/--block-device-mapping Defines native device names to use when exposing virtual devices.
+-i/--instance-id          The ID of this instance
+-t/--instance-type        The type of instance to launch. For more information, see Instance Types.
+-h/--local-hostname       The local hostname of the instance.
+-o/--local-ipv4           Public IP address if launched with direct addressing; private IP address if launched with public addressing.
+-k/--kernel-id            The ID of the kernel launched with this instance, if applicable.
+-z/--availability-zone    The availability zone in which the instance launched. Same as placement
+-c/--product-codes        Product codes associated with this instance.
+-p/--public-hostname      The public hostname of the instance.
+-v/--public-ipv4          NATted public IP Address
+-u/--public-keys          Public keys. Only available if supplied at instance launch time
+-r/--ramdisk-id           The ID of the RAM disk launched with this instance, if applicable.
+-e/--reservation-id       ID of the reservation.
+-s/--security-groups      Names of the security groups the instance is launched in. Only available if supplied at instance launch time
+-d/--user-data            User-supplied data.Only available if supplied at instance launch time.
+[ec2-user@ip-10-16-50-119 ~]$ 
+```
+
+### 1.6.17. Quiz
+
+1. What are the three main states of EC2 instances (choose all which apply)
+- **RUNNING (Correct)**
+- **STOPPED (Correct)**
+- **TERMINATED (Correct)**
+- SHUTDOWN
+- CLONING
+
+2. What is true of instance store volumes?
+- They are persistent storage
+- **They are temporary (ephemeral) storage (Correct)**
+- **Data stored on them can be lost when an EC2 instance stops and starts (Correct)**
+- Data stored on them can be lost when an EC2 instance restarts
+- **Data stored on them can be lost if a hardware failure occurs (Correct)**
+
+3. If the AZ which an EC2 instance is running in fails, what happens to the instance?
+- It recovers in another AZ
+- It recovers in another region
+- **The instance will remain failed until at least when the AZ recovers (Correct)**
+- It continues running, instances are HA by design
+
+4. Can an EC2 instance be migrated between AZs ?
+- Yes, its supported via the UI and CLI
+- Yes, only via the CLI
+- No - this isn't possible
+- **No - but an AMI can be created from an instance and used to provision a clone in another AZ (Correct)**
+
+5. What kind of use-case suits using IO1 & 2 EBS volumes
+- When archival storage is required
+- When cheap storage is required
+- When throughput is the priority
+- When cost effective IOPS is a priority
+- **When maximum consistent IOPS is a priority and data is important (Correct)**
+
+6. If you need to be able to specify performance requirements (IOPS) independent of volume size which volume type should you choose ?
+- ST1
+- SC1
+- GP2
+- **IO1 (Correct)**
+
+7. How many instances can a GP2 volume be attached to at the same time
+- 1 per AZ
+- 2 per AZ
+- 2 in one AZ
+- **1 (Correct)**
+
+8. Can EBS volumes be attached to instances in ANY AZ ?
+- Yes
+- Yes, assuming they are SSD volumes
+- Yes if regional volumes are created
+- **No, only instances in the same AZ as the volume (Correct)**
+
+9. When should instance store volumes be used ? (choose all that apply)
+- For important data
+- **For replaceable data (Correct)**
+- **For temporary data (Correct)**
+- **For max IO (Correct)**
+- For maximum resilience
+- Only if cost isn't a priority
+
+10. If you have a short term workload which needs the cheapest EC2 pricing but cant tolerate interruption which billing model should you pick
+- Reserved
+- Spot
+- **On-Demand (Correct)**
 
 ---
 
